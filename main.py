@@ -6,8 +6,8 @@ run=True
 pygame.init()
 pygame.font.init()
 
-WIN_WIDTH = 400
-WIN_HEIGHT = 625
+WIN_WIDTH = 500
+WIN_HEIGHT = 600
 window = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 
 clock = pygame.time.Clock()

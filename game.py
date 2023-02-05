@@ -1,22 +1,38 @@
 import pygame
+from tetrominos import *
 
+TILE_SIZE = 30
 class Game:
     def __init__(self):
-        self.grid = [[]]
-        self.start_game(10,25)
-        self.running = True
+        self.grid = None
+        self.running = False
+        self.block_lst = []
+        self.control_tetromino = None
+
+        self.start_game(10,20)
 
     def start_game(self,width, height):
-        tile_size = 25
-        self.grid_surface = pygame.Surface((tile_size*width, tile_size*height))
-        self.grid = GameGrid(self, width, height, tile_size)
+        self.grid_surface = pygame.Surface((TILE_SIZE*width, TILE_SIZE*height))
+        self.grid = GameGrid(self, width, height, TILE_SIZE)
+        self.create_tetromino()
+        self.running = True
+
+    def create_tetromino(self, type='R'):
+        # todo
+        #  create the tetromino based on type
+        #  type R means random
+        self.control_tetromino = TetrominoO(self, (-1,0), TILE_SIZE)
 
     def update(self, *args, **kwargs):
-        pass
+        self.control_tetromino.update()
 
     def draw(self, surface, *args, **kwargs):
-        surface.blit(self.grid_surface,(0, 0))
+        surface.blit(self.grid_surface, (0, 0))
         self.grid.draw(self.grid_surface)
+        if(self.control_tetromino is not None):
+            self.control_tetromino.draw(surface)
+        for block in self.block_lst:
+            block.draw(surface)
 
 class GameGrid:
     def __init__(self, game, width, height, tile_size):
@@ -45,13 +61,14 @@ class GameGrid:
 
     def draw(self, surface, *args, **kwargs):
         for tile in self.grid:
-            tile.draw(surface)
+            tile.draw(surface, (0, 0, 0))
 
 class Tile:
-    def __init__(self, grid,grid_pos, size):
+    def __init__(self, grid, grid_pos, size):
         self.grid = grid
         self.grid_pos = grid_pos
         self.size = size
+        self.img = pygame.image.load('./assets/Tile.png')
 
         self.block = None
         self.occupied = False
@@ -71,9 +88,4 @@ class Tile:
             self.occupied = True
 
     def draw(self, surface, *args, **kwargs):
-        pygame.draw.rect(surface,
-                         (200,0,0),
-                         (self.grid_pos[0] * self.size,self.grid_pos[1] * self.size,self.size,self.size),
-                         1
-                         )
-
+        surface.blit(self.img, (self.grid_pos[0]*self.size, self.grid_pos[1]*self.size))
