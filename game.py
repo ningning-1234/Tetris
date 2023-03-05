@@ -15,7 +15,7 @@ class Game:
     def start_game(self,width, height):
         self.grid_surface = pygame.Surface((TILE_SIZE*width, TILE_SIZE*height+200))
         self.grid = GameGrid(self, width, height, TILE_SIZE)
-        self.create_tetromino(4, 'T')
+        self.create_tetromino(4, 'S')
         self.running = True
 
     def create_tetromino(self, spawn_pos, type=''):

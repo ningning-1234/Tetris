@@ -1,14 +1,14 @@
 import pygame.image
 
-
 class Tetromino:
     def __init__(self, game, start_pos, type, img, size):
         self.game = game
         self.type = type
         self.img = img
         self.size = size
+        self.rotations = ()
         self.blocks = []
-        self.pivot = None
+        self.pivot_index = 0
         self.create_blocks(start_pos)
         self.rotation = 0
         self.falling = True
@@ -22,7 +22,6 @@ class Tetromino:
 
         self.soft_drop_delay = 5
         self.last_soft_drop = self.soft_drop_delay
-
 
     def create_blocks(self, start_pos):
         pass
@@ -47,7 +46,6 @@ class Tetromino:
             block.fall()
 
     def find_landing_spot(self):
-
         return 0
 
     def rotate(self, dir):
@@ -58,10 +56,30 @@ class Tetromino:
         -1 = Counter clockwise
         :return:
         '''
-        if(dir==1):
-            print('rotate clockwise')
-        else:
-            print('rotate counterclockwise')
+
+        next_rotation = (self.rotation + dir) % len(self.rotations)
+        rotation_lst = self.rotations[next_rotation]
+        print(next_rotation)
+        print(rotation_lst)
+        pivot_pos = self.blocks[self.pivot_index].grid_pos.copy()
+        for i in range(len(self.blocks)):
+            block = self.blocks[i]
+            print( rotation_lst[i])
+            block.next_pos[0] = pivot_pos[0] + rotation_lst[i][0]
+            block.next_pos[1] = pivot_pos[1] + rotation_lst[i][1]
+
+        # todo
+        #  rotation check
+        #  if rotation check passes
+
+        rotation_passed = True
+        for block in self.blocks:
+            if(rotation_passed):
+                block.grid_pos = block.next_pos.copy()
+            block.next_pos = block.grid_pos.copy()
+        if (rotation_passed):
+            self.rotation = next_rotation
+
 
     def hard_drop(self):
         while(self.can_fall()):
@@ -142,6 +160,7 @@ class Tetromino:
         for block in self.blocks:
             block.draw(surface)
 
+
 class TetrominoBlock:
     def __init__(self, tetromino, grid_pos, size):
         self.tetromino = tetromino
@@ -187,12 +206,6 @@ class TetrominoO(Tetromino):
         block = TetrominoBlock(self, [start_pos[0] + 1, start_pos[1] + 1], self.size)
         self.blocks.append(block)
 
-    def rotate(self, dir):
-        '''
-        Does not rotate
-        '''
-        pass
-
 L_IMG = pygame.image.load('assets/TetrominoL.png')
 class TetrominoL(Tetromino):
     def __init__(self, game, start_pos, size):
@@ -235,12 +248,35 @@ S_IMG = pygame.image.load('assets/TetrominoS.png')
 class TetrominoS(Tetromino):
     def __init__(self, game, start_pos, size):
         super().__init__(game, start_pos, 'S', S_IMG, size)
+        self.rotations = (
+            # rotation 0
+            #    1  0
+            # 3 [2]
+            ((1, -1), (0, -1), (0, 0), (-1, 0)),
+            # rotation 1
+            #  3
+            # [2] 1
+            #     0
+            ((1, 1), (1, 0), (0, 0), (0, -1)),
+            # rotation 2
+            #   [2] 3
+            # 0  1
+            ((-1, 1), (0, 1), (0, 0), (1, 0)),
+            # rotation 3
+            # 0
+            # 1 [2]
+            #    3
+            ((-1, -1), (-1, 0), (0, 0), (0, 1)),
+        )
+        self.pivot_index = 2
 
     def create_blocks(self, start_pos):
         if (start_pos[0] < 0):
             start_pos = 0
         if (start_pos[0] > self.game.grid.width - 3):
             start_pos = self.game.grid.width - 3
+        #    1  0
+        # 3 [2]
         block = TetrominoBlock(self, [start_pos[0] + 1, start_pos[1]], self.size)
         self.blocks.append(block)
         block = TetrominoBlock(self, [start_pos[0] + 2, start_pos[1]], self.size)
@@ -273,71 +309,43 @@ T_IMG = pygame.image.load('assets/TetrominoT.png')
 class TetrominoT(Tetromino):
     def __init__(self, game, start_pos, size):
         super().__init__(game, start_pos, 'T', T_IMG, size)
+        self.rotations = (
+            # rotation 0
+            # 0 [1] 2
+            #    3
+            ((-1,0),(0,0),(1,0),(0,1)),
+            # rotation 1
+            #    0
+            # 3 [1]
+            #    2
+            ((0, -1),(0,0),(0,1),(-1,0)),
+            # rotation 2
+            #    3
+            # 2 [1] 0
+            ((1,0),(0,0),(-1,0),(0,-1)),
+            # rotation 3
+            #  0
+            # [1] 3
+            #  2
+            ((0,-1),(0,0),(0,1),(1,0)),
+        )
+        self.pivot_index = 1
 
     def create_blocks(self, start_pos):
         if (start_pos[0] < 0):
             start_pos = 0
         if (start_pos[0] > self.game.grid.width - 2):
             start_pos = self.game.grid.width - 2
+        # 0 [1] 2
+        #    3
         block = TetrominoBlock(self, [start_pos[0], start_pos[1]], self.size)
         self.blocks.append(block)
         block = TetrominoBlock(self, [start_pos[0] + 1, start_pos[1]], self.size)
         self.blocks.append(block)
-        self.pivot = block
         block = TetrominoBlock(self, [start_pos[0] + 2, start_pos[1]], self.size)
         self.blocks.append(block)
         block = TetrominoBlock(self, [start_pos[0] + 1, start_pos[1] + 1], self.size)
         self.blocks.append(block)
-
-    def rotate(self, dir):
-        #update the pivot's next pos first
-        self.pivot.next_pos = self.pivot.grid_pos.copy()
-        if (self.rotation == 0):
-            self.blocks[0].next_pos[0] = self.pivot.next_pos[0]
-            self.blocks[0].next_pos[1] = self.pivot.next_pos[1] - dir
-
-            self.blocks[2].next_pos[0] = self.pivot.next_pos[0]
-            self.blocks[2].next_pos[1] = self.pivot.next_pos[1] + dir
-
-            self.blocks[3].next_pos[0] = self.pivot.next_pos[0] - dir
-            self.blocks[3].next_pos[1] = self.pivot.next_pos[1]
-        elif(self.rotation == 1):
-            self.blocks[0].next_pos[0] = self.pivot.next_pos[0] + dir
-            self.blocks[0].next_pos[1] = self.pivot.next_pos[1]
-
-            self.blocks[2].next_pos[0] = self.pivot.next_pos[0] - dir
-            self.blocks[2].next_pos[1] = self.pivot.next_pos[1]
-
-            self.blocks[3].next_pos[0] = self.pivot.next_pos[0]
-            self.blocks[3].next_pos[1] = self.pivot.next_pos[1] - dir
-        elif(self.rotation == 2):
-            self.blocks[0].next_pos[0] = self.pivot.next_pos[0]
-            self.blocks[0].next_pos[1] = self.pivot.next_pos[1] - dir
-
-            self.blocks[2].next_pos[0] = self.pivot.next_pos[0]
-            self.blocks[2].next_pos[1] = self.pivot.next_pos[1] + dir
-
-            self.blocks[3].next_pos[0] = self.pivot.next_pos[0] + dir
-            self.blocks[3].next_pos[1] = self.pivot.next_pos[1]
-        elif(self.rotation == 3):
-            self.blocks[0].next_pos[0] = self.pivot.next_pos[0] - dir
-            self.blocks[0].next_pos[1] = self.pivot.next_pos[1]
-
-            self.blocks[2].next_pos[0] = self.pivot.next_pos[0] + dir
-            self.blocks[2].next_pos[1] = self.pivot.next_pos[1]
-
-            self.blocks[3].next_pos[0] = self.pivot.next_pos[0]
-            self.blocks[3].next_pos[1] = self.pivot.next_pos[1] + dir
-        # todo
-        #  rotation check
-        #  if rotation check passes
-        rotation_passed = True
-        for block in self.blocks:
-            if(rotation_passed):
-                block.grid_pos = block.next_pos.copy()
-            block.next_pos = block.grid_pos.copy()
-        if (rotation_passed):
-            self.rotation = (self.rotation + dir)%4
 
 
 I_IMG = pygame.image.load('assets/TetrominoI.png')
@@ -356,29 +364,6 @@ class TetrominoI(Tetromino):
         self.blocks.append(block)
         block = TetrominoBlock(self, [start_pos[0], start_pos[1] + 2], self.size)
         self.blocks.append(block)
-        self.pivot = block
         block = TetrominoBlock(self, [start_pos[0], start_pos[1] + 3], self.size)
         self.blocks.append(block)
-
-    def rotate(self, dir):
-        if(self.rotation == 0):
-            self.blocks[0].grid_pos[0] = self.pivot.grid_pos[0] + dir*2
-            self.blocks[0].grid_pos[1] = self.pivot.grid_pos[1]
-
-            self.blocks[1].grid_pos[0] = self.pivot.grid_pos[0] + dir
-            self.blocks[1].grid_pos[1] = self.pivot.grid_pos[1]
-
-            self.blocks[3].grid_pos[0] = self.pivot.grid_pos[0] - dir
-            self.blocks[3].grid_pos[1] = self.pivot.grid_pos[1]
-            self.rotation = dir
-        else:
-            self.blocks[0].grid_pos[0] = self.pivot.grid_pos[0]
-            self.blocks[0].grid_pos[1] = self.pivot.grid_pos[1] - 2
-
-            self.blocks[1].grid_pos[0] = self.pivot.grid_pos[0]
-            self.blocks[1].grid_pos[1] = self.pivot.grid_pos[1] - 1
-
-            self.blocks[3].grid_pos[0] = self.pivot.grid_pos[0]
-            self.blocks[3].grid_pos[1] = self.pivot.grid_pos[1] + 1
-            self.rotation = 0
 
