@@ -15,7 +15,7 @@ class Game:
     def start_game(self,width, height):
         self.grid_surface = pygame.Surface((TILE_SIZE*width, TILE_SIZE*height+200))
         self.grid = GameGrid(self, width, height, TILE_SIZE)
-        self.create_tetromino(4, 'S')
+        self.create_tetromino(4,'')
         self.running = True
 
     def create_tetromino(self, spawn_pos, type=''):
@@ -50,7 +50,8 @@ class Game:
         if (self.control_tetromino is not None):
             self.control_tetromino.update(args[0], args[1])
         else:
-            self.create_tetromino(4, 'T')
+            self.create_tetromino(4,'')
+        self.grid.update()
 
     def draw(self, surface, *args, **kwargs):
         surface.blit(self.grid_surface, (0, 200))
@@ -85,8 +86,44 @@ class GameGrid:
             return
         return self.grid[index]
 
-    def update(self, *args, **kwargs):
+    def get_row(self, row_num):
+        '''
+        Gets the tiles in a single row
+        :param row_num: Row number
+        :return: List of tiles in row
+        '''
+        return []
+
+    def get_filled_rows(self):
+        '''
+        Gets a list of rows that are filled
+        :return:
+        '''
+        return []
+
+    def clear_row(self, row_num):
+        '''
+        Removes all blocks in a given row
+        :param row_num: Row to be cleared
+        :return:
+        '''
         pass
+
+    def drop_row(self, row_num, drops=1):
+        '''
+        Drops all the blocks in a row down by a given amount
+        :param row_num: Row to be dropped
+        :param drops: Number of rows to drop
+        :return:
+        '''
+        pass
+
+    def update(self, *args, **kwargs):
+        print('grid update')
+        #todo
+        # check for filled rows and print the row number
+        # clear the rows
+        # drop the blocks above
 
     def draw(self, surface, *args, **kwargs):
         for tile in self.grid:
