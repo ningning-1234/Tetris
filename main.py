@@ -11,7 +11,7 @@ WIN_HEIGHT = 800
 window = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 
 clock = pygame.time.Clock()
-FPS = 5
+FPS = 60
 
 BG_COLOR = pygame.color.Color('0x505050')
 

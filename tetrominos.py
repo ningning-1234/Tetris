@@ -114,12 +114,13 @@ class Tetromino:
         for block in self.blocks:
             tile = self.game.grid.get_tile(block.grid_pos[0], block.grid_pos[1])
             if(tile is not None):
-                self.game.block_lst.append(block)
+                #self.game.block_lst.append(block)
                 tile.block = block
                 tile.occupied = True
             else:
                 self.game.out_of_bounds_block()
         self.game.control_tetromino = None
+        self.game.grid.check_filled_rows = True
 
     def check_valid_pos(self):
         '''
@@ -240,9 +241,11 @@ class TetrominoBlock:
     def can_fall(self):
         if (self.grid_pos[1] + 1 >= self.tetromino.game.grid.height):
             return False
-        for block in self.tetromino.game.block_lst:
-            if (self.grid_pos[0] == block.grid_pos[0] and self.grid_pos[1] + 1 == block.grid_pos[1]):
-            #if (self.tetromino.game.grid.get_tile(block.grid_pos[0], block.grid_pos[1] + 1).occupied == True):
+
+        # for block in self.tetromino.game.block_lst:
+        #     if (self.grid_pos[0] == block.grid_pos[0] and self.grid_pos[1] + 1 == block.grid_pos[1]):
+        if (self.tetromino.game.grid.get_tile(self.grid_pos[0], self.grid_pos[1] + 1) is not None):
+            if (self.tetromino.game.grid.get_tile(self.grid_pos[0], self.grid_pos[1] + 1).occupied == True):
                 return False
         return True
 

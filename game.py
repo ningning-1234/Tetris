@@ -7,7 +7,7 @@ class Game:
     def __init__(self):
         self.grid = None
         self.running = False
-        self.block_lst = []
+        #self.block_lst = []
         self.control_tetromino = None
 
         self.start_game(10,20)
@@ -15,10 +15,10 @@ class Game:
     def start_game(self,width, height):
         self.grid_surface = pygame.Surface((TILE_SIZE*width, TILE_SIZE*height+200))
         self.grid = GameGrid(self, width, height, TILE_SIZE)
-        self.create_tetromino(4,'')
+        self.create_tetromino(4,'I')
         self.running = True
 
-    def create_tetromino(self, spawn_pos, type=''):
+    def create_tetromino(self, spawn_pos, type='I'):
         tetromino_types = ['O', 'L', 'J', 'S', 'Z', 'T', 'I']
         if (type not in tetromino_types):
             random_tetromino = randint(0, 6)
@@ -50,7 +50,7 @@ class Game:
         if (self.control_tetromino is not None):
             self.control_tetromino.update(args[0], args[1])
         else:
-            self.create_tetromino(4,'')
+            self.create_tetromino(4,'I')
         self.grid.update()
 
     def draw(self, surface, *args, **kwargs):
@@ -58,8 +58,8 @@ class Game:
         self.grid.draw(self.grid_surface)
         if(self.control_tetromino is not None):
             self.control_tetromino.draw(surface)
-        for block in self.block_lst:
-            block.draw(surface)
+        # for block in self.block_lst:
+        #     block.draw(surface)
 
 class GameGrid:
     def __init__(self, game, width, height, tile_size):
@@ -67,6 +67,7 @@ class GameGrid:
         self.width = width
         self.height = height
         self.tile_size = tile_size
+        self.check_filled_rows = False
         self.grid = []
         self.create_grid()
 
@@ -92,14 +93,29 @@ class GameGrid:
         :param row_num: Row number
         :return: List of tiles in row
         '''
-        return []
+        tile_lst = []
+        for x_pos in range(0, self.width):
+            tile_lst.append(self.get_tile(x_pos, row_num))
+        return tile_lst
 
     def get_filled_rows(self):
         '''
         Gets a list of rows that are filled
-        :return:
+        :return: A lst of row numbers
         '''
-        return []
+        row_lst = []
+        for row in range(0, self.height):
+            occupied = True
+            tile_lst = self.get_row(row)
+            for tile in tile_lst:
+                # print(tile, end=' ')
+                if(tile.occupied == False):
+                    occupied = False
+                    break
+            print(occupied)
+            if(occupied != False):
+                row_lst.append(row)
+        return row_lst
 
     def clear_row(self, row_num):
         '''
@@ -107,7 +123,9 @@ class GameGrid:
         :param row_num: Row to be cleared
         :return:
         '''
-        pass
+        for x_pos in range(0, self.width):
+            self.get_tile(x_pos, row_num).occupied = False
+            self.get_tile(x_pos, row_num).block = None
 
     def drop_row(self, row_num, drops=1):
         '''
@@ -116,10 +134,16 @@ class GameGrid:
         :param drops: Number of rows to drop
         :return:
         '''
+        # todo
+        #  drop rows
         pass
 
     def update(self, *args, **kwargs):
-        print('grid update')
+        if(self.check_filled_rows==True):
+            self.check_filled_rows = False
+            for row in self.get_filled_rows():
+                self.clear_row(row)
+        # print('grid update')
         #todo
         # check for filled rows and print the row number
         # clear the rows
@@ -165,3 +189,5 @@ class Tile:
 
     def draw(self, surface, *args, **kwargs):
         surface.blit(self.img, (self.grid_pos[0]*self.size, self.grid_pos[1]*self.size))
+        if(self.occupied != False):
+            surface.blit(self.block.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
