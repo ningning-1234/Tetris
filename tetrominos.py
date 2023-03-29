@@ -14,7 +14,7 @@ class Tetromino:
         self.falling = True
 
         # self.fall_delay = 15
-        self.fall_delay = 100000
+        self.fall_delay = 20
         self.last_fall = 0
 
         self.move_delay = 5
@@ -22,6 +22,9 @@ class Tetromino:
 
         self.soft_drop_delay = 5
         self.last_soft_drop = self.soft_drop_delay
+
+        self.stop_fall_delay = 60
+        self.last_stop_fall = self.stop_fall_delay
 
     def create_blocks(self, start_pos):
         pass
@@ -41,11 +44,6 @@ class Tetromino:
 
     def soft_drop(self):
         self.fall()
-        self.last_soft_drop = 0
-
-    def hard_drop(self):
-        for block in self.blocks:
-            block.grid_pos[1] = block.grid_pos[1] + 15
         self.last_soft_drop = 0
 
     def fall(self):
@@ -93,6 +91,9 @@ class Tetromino:
             block.next_pos = block.grid_pos.copy()
         if (rotation_passed):
             self.rotation = next_rotation
+            # if(not self.falling):
+            #     self.stop_fall_delay = self.stop_fall_delay-10
+            #     self.last_stop_fall = self.stop_fall_delay
 
     def hard_drop(self):
         while(self.can_fall()):
@@ -111,6 +112,7 @@ class Tetromino:
         :return:
         '''
         # self.game.block_lst = self.game.block_lst + self.blocks
+        #release blocks into tiles
         for block in self.blocks:
             tile = self.game.grid.get_tile(block.grid_pos[0], block.grid_pos[1])
             if(tile is not None):
@@ -129,7 +131,14 @@ class Tetromino:
         :return: True if valid, False otherwise
         '''
         for block in self.blocks:
-            if (block.next_pos[0] > self.game.grid.width - 1 or block.next_pos[0] < 0):
+            #left
+            if (block.next_pos[0] >= self.game.grid.width):
+                return False
+            #right
+            if (block.next_pos[0] < 0):
+                return False
+            #bottom
+            if (block.next_pos[1] >= self.game.grid.height):
                 return False
             if (self.game.grid.get_tile(block.next_pos[0], block.next_pos[1]) is not None):
                 if (self.game.grid.get_tile(block.next_pos[0], block.next_pos[1]).occupied == True):
@@ -207,7 +216,12 @@ class Tetromino:
                 self.fall()
                 self.last_fall = 0
         else:
-            self.stop_fall()
+            self.last_stop_fall = self.last_stop_fall - 1
+            if(self.can_fall() == True):
+                self.falling = True
+                self.last_stop_fall = self.stop_fall_delay
+            elif(self.last_stop_fall <= 0):
+                self.stop_fall()
             # add delay before stop_fall is called
             # set falling back to True if the tetromino can fall again
 
@@ -215,6 +229,7 @@ class Tetromino:
         for event in args[1]:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
+                    # print('key up')
                     self.hard_drop()
                     return
 
@@ -254,7 +269,7 @@ class TetrominoBlock:
         pass
 
     def draw(self, surface, *args, **kwargs):
-        surface.blit(self.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size+200))
+        surface.blit(self.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
 
 O_IMG = pygame.image.load('assets/TetrominoO.png')
 class TetrominoO(Tetromino):

@@ -16,7 +16,7 @@ FPS = 60
 BG_COLOR = pygame.color.Color('0x505050')
 
 game = Game()
-
+i=0
 while (run):
     events = pygame.event.get()
     for event in events:
@@ -30,4 +30,6 @@ while (run):
     game.draw(window)
 
     pygame.display.flip()
+    # print(i)
+    i= i+1
     clock.tick(FPS)

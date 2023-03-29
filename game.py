@@ -9,38 +9,41 @@ class Game:
         self.running = False
         #self.block_lst = []
         self.control_tetromino = None
+        self.width = 10
+        self.game_height = 20
+        self.buffer = 5
 
-        self.start_game(10,20)
+        self.start_game(self.width, self.game_height, self.buffer)
 
-    def start_game(self,width, height):
-        self.grid_surface = pygame.Surface((TILE_SIZE*width, TILE_SIZE*height+200))
-        self.grid = GameGrid(self, width, height, TILE_SIZE)
-        self.create_tetromino(4,'I')
+    def start_game(self,width, height, buffer):
+        self.grid_surface = pygame.Surface((TILE_SIZE*width, TILE_SIZE*(height+buffer)))
+        self.grid = GameGrid(self, width, height, buffer, TILE_SIZE)
+        self.create_tetromino(4)
         self.running = True
 
-    def create_tetromino(self, spawn_pos, type='I'):
+    def create_tetromino(self, spawn_pos, type=''):
         tetromino_types = ['O', 'L', 'J', 'S', 'Z', 'T', 'I']
         if (type not in tetromino_types):
             random_tetromino = randint(0, 6)
             type = tetromino_types[random_tetromino]
         x=0
         if (type == 'O'):
-            self.control_tetromino = TetrominoO(self, (spawn_pos, -2+x), TILE_SIZE)
+            self.control_tetromino = TetrominoO(self, (spawn_pos, self.buffer-3), TILE_SIZE)
         if (type == 'L'):
-            self.control_tetromino = TetrominoL(self, (spawn_pos, -3+x), TILE_SIZE)
+            self.control_tetromino = TetrominoL(self, (spawn_pos, self.buffer-3), TILE_SIZE)
         if (type == 'J'):
-            self.control_tetromino = TetrominoJ(self, (spawn_pos, -3+x), TILE_SIZE)
+            self.control_tetromino = TetrominoJ(self, (spawn_pos, self.buffer-3), TILE_SIZE)
         if (type == 'S'):
-            self.control_tetromino = TetrominoS(self, (spawn_pos, -2+x), TILE_SIZE)
+            self.control_tetromino = TetrominoS(self, (spawn_pos, self.buffer-3), TILE_SIZE)
         if (type == 'Z'):
-            self.control_tetromino = TetrominoZ(self, (spawn_pos, -2+x), TILE_SIZE)
+            self.control_tetromino = TetrominoZ(self, (spawn_pos, self.buffer-3), TILE_SIZE)
         if (type == 'T'):
-            self.control_tetromino = TetrominoT(self, (spawn_pos, -2+x), TILE_SIZE)
+            self.control_tetromino = TetrominoT(self, (spawn_pos, self.buffer-3), TILE_SIZE)
         if (type == 'I'):
-            self.control_tetromino = TetrominoI(self, (spawn_pos, -4+x), TILE_SIZE)
+            self.control_tetromino = TetrominoI(self, (spawn_pos, self.buffer-3), TILE_SIZE)
 
     def out_of_bounds_block(self):
-        print('game over')
+        print('out of bounds')
         self.running = False
 
     def update(self, *args, **kwargs):
@@ -50,22 +53,29 @@ class Game:
         if (self.control_tetromino is not None):
             self.control_tetromino.update(args[0], args[1])
         else:
-            self.create_tetromino(4,'I')
+            # todo add delay before next tetromino is in active
+            #  add effect when tetromino stops moving
+            #  add effect when row is cleared
+            self.create_tetromino(4)
         self.grid.update()
 
     def draw(self, surface, *args, **kwargs):
-        surface.blit(self.grid_surface, (0, 200))
+        surface.blit(self.grid_surface, (0, 0))
         self.grid.draw(self.grid_surface)
+
         if(self.control_tetromino is not None):
             self.control_tetromino.draw(surface)
+
         # for block in self.block_lst:
         #     block.draw(surface)
 
 class GameGrid:
-    def __init__(self, game, width, height, tile_size):
+    def __init__(self, game, width, height, buffer, tile_size):
         self.game = game
         self.width = width
-        self.height = height
+        self.height = height + buffer
+        self.buffer = buffer
+        self.game_height = height
         self.tile_size = tile_size
         self.check_filled_rows = False
         self.grid = []
@@ -74,16 +84,17 @@ class GameGrid:
     def create_grid(self):
         for width in range(0, self.width):
             for height in range(0, self.height):
-                tile = Tile(self, (width, height), self.tile_size)
+                tile = Tile(self, (width, height), self.tile_size, (height>=self.buffer))
                 self.grid.append(tile)
+                # print(tile.in_game)
 
     def get_tile(self, x, y):
         if(x<0 or y<0):
-            print("index (" + str(x) + "," + str(y) + ") out of bounds")
+            #print("index (" + str(x) + "," + str(y) + ") out of bounds")
             return
         index = x * self.height + y
-        if(index > len(self.grid) or index<0):
-            print("index (" + str(x) + "," + str(y) + ") out of bounds")
+        if(index >= len(self.grid) or index<0):
+            #print("index (" + str(x) + "," + str(y) + ") out of bounds")
             return
         return self.grid[index]
 
@@ -112,7 +123,6 @@ class GameGrid:
                 if(tile.occupied == False):
                     occupied = False
                     break
-            print(occupied)
             if(occupied != False):
                 row_lst.append(row)
         return row_lst
@@ -136,13 +146,32 @@ class GameGrid:
         '''
         # todo
         #  drop rows
-        pass
+        print(row_num)
+        for tile in self.get_row(row_num):
+            if(tile.block is not None):
+                new_tile = self.get_tile(tile.grid_pos[0], tile.grid_pos[1] + 1)
+                new_tile.block = tile.block
+                new_tile.occupied = True
+                tile.block = None
+                tile.occupied = False
 
     def update(self, *args, **kwargs):
+        #check for filled rows
         if(self.check_filled_rows==True):
             self.check_filled_rows = False
             for row in self.get_filled_rows():
                 self.clear_row(row)
+                for above in range(row-1,0,-1):
+                    self.drop_row(above)
+        #check top
+        for x in range(0, self.width,1):
+            for y in range(0, self.buffer,1):
+                t = self.get_tile(x,y)
+                if(t.block is not None and t.in_game==False):
+                    print('game over')
+                    self.game.running = False
+
+
         # print('grid update')
         #todo
         # check for filled rows and print the row number
@@ -164,11 +193,12 @@ class GameGrid:
         print('\n')
 
 class Tile:
-    def __init__(self, grid, grid_pos, size):
+    def __init__(self, grid, grid_pos, size, in_game):
         self.grid = grid
         self.grid_pos = grid_pos
         self.size = size
         self.img = pygame.image.load('./assets/Tile.png')
+        self.in_game = in_game
 
         self.block = None
         self.occupied = False
@@ -188,6 +218,9 @@ class Tile:
             self.occupied = True
 
     def draw(self, surface, *args, **kwargs):
-        surface.blit(self.img, (self.grid_pos[0]*self.size, self.grid_pos[1]*self.size))
-        if(self.occupied != False):
+        if(not self.in_game):
+            pygame.draw.rect(surface, (50,0,0),(self.grid_pos[0] * self.size, self.grid_pos[1] * self.size,self.size, self.size))
+        else:
+            surface.blit(self.img, (self.grid_pos[0]*self.size, self.grid_pos[1]*self.size))
+        if(self.occupied):
             surface.blit(self.block.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
