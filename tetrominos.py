@@ -23,7 +23,7 @@ class Tetromino:
         self.soft_drop_delay = 5
         self.last_soft_drop = self.soft_drop_delay
 
-        self.stop_fall_delay = 60
+        self.stop_fall_delay = 30
         self.last_stop_fall = self.stop_fall_delay
 
     def create_blocks(self, start_pos):
@@ -242,6 +242,9 @@ class TetrominoBlock:
     def __init__(self, tetromino, grid_pos, size):
         self.tetromino = tetromino
         self.img = self.tetromino.img
+        self.blink_img = pygame.image.load('assets/Blink Tetrominos/Tetromino' + str(self.tetromino.type) + '.png')
+        self.blink = False
+        self.blink_timer = 0
         self.grid_pos = grid_pos
         self.next_pos = self.grid_pos.copy()
         self.size = size
@@ -269,7 +272,10 @@ class TetrominoBlock:
         pass
 
     def draw(self, surface, *args, **kwargs):
-        surface.blit(self.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
+        if(self.blink == True):
+            surface.blit(self.blink_img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
+        else:
+            surface.blit(self.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
 
 O_IMG = pygame.image.load('assets/TetrominoO.png')
 class TetrominoO(Tetromino):

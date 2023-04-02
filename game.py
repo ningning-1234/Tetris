@@ -9,6 +9,9 @@ class Game:
         self.running = False
         #self.block_lst = []
         self.control_tetromino = None
+        self.prepare_next_tetromino = True
+        # todo
+        #  print next tetromino
         self.width = 10
         self.game_height = 20
         self.buffer = 5
@@ -56,7 +59,8 @@ class Game:
             # todo add delay before next tetromino is in active
             #  add effect when tetromino stops moving
             #  add effect when row is cleared
-            self.create_tetromino(4)
+            if(self.prepare_next_tetromino):
+                self.create_tetromino(4)
         self.grid.update()
 
     def draw(self, surface, *args, **kwargs):
@@ -75,9 +79,12 @@ class GameGrid:
         self.width = width
         self.height = height + buffer
         self.buffer = buffer
+        self.clear_row_buffer = 5
+        self.clear_row_timer = self.clear_row_buffer
         self.game_height = height
         self.tile_size = tile_size
         self.check_filled_rows = False
+        self.filled_rows = []
         self.grid = []
         self.create_grid()
 
@@ -136,6 +143,7 @@ class GameGrid:
         for x_pos in range(0, self.width):
             self.get_tile(x_pos, row_num).occupied = False
             self.get_tile(x_pos, row_num).block = None
+            self.get_tile(x_pos, row_num).blink = False
 
     def drop_row(self, row_num, drops=1):
         '''
@@ -144,8 +152,6 @@ class GameGrid:
         :param drops: Number of rows to drop
         :return:
         '''
-        # todo
-        #  drop rows
         print(row_num)
         for tile in self.get_row(row_num):
             if(tile.block is not None):
@@ -156,14 +162,24 @@ class GameGrid:
                 tile.occupied = False
 
     def update(self, *args, **kwargs):
-        #check for filled rows
-        if(self.check_filled_rows==True):
+        # check for filled rows
+        if(self.check_filled_rows == True):
+            self.filled_rows = self.get_filled_rows()
             self.check_filled_rows = False
-            for row in self.get_filled_rows():
-                self.clear_row(row)
-                for above in range(row-1,0,-1):
-                    self.drop_row(above)
-        #check top
+            for row in self.filled_rows:
+                for tiles in self.get_row(row):
+                    tiles.blink = True
+            self.clear_row_timer = self.clear_row_buffer
+        if(len(self.filled_rows) > 0):
+            self.clear_row_timer = self.clear_row_timer - 1
+            print(self.clear_row_timer)
+            if(self.clear_row_timer <= 0):
+                for row in self.filled_rows:
+                    self.clear_row(row)
+                    for above in range(row-1,0,-1):
+                        self.drop_row(above)
+                self.filled_rows = []
+        # check top
         for x in range(0, self.width,1):
             for y in range(0, self.buffer,1):
                 t = self.get_tile(x,y)
@@ -198,6 +214,7 @@ class Tile:
         self.grid_pos = grid_pos
         self.size = size
         self.img = pygame.image.load('./assets/Tile.png')
+        self.blink = False
         self.in_game = in_game
 
         self.block = None
@@ -223,4 +240,7 @@ class Tile:
         else:
             surface.blit(self.img, (self.grid_pos[0]*self.size, self.grid_pos[1]*self.size))
         if(self.occupied):
-            surface.blit(self.block.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
+            if(self.blink == True):
+                surface.blit(self.block.blink_img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
+            else:
+                surface.blit(self.block.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
