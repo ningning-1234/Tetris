@@ -26,6 +26,16 @@ class Tetromino:
         self.stop_fall_delay = 30
         self.last_stop_fall = self.stop_fall_delay
 
+        self.blink = False
+        self.blink_speed = 0
+        self.blink_timer = 0
+        self.blink_frame = 0
+
+        self.controllable = True
+
+        self.start_expire = False
+        self.expire_timer = 0
+
     def create_blocks(self, start_pos):
         pass
 
@@ -74,9 +84,6 @@ class Tetromino:
             block.next_pos[0] = pivot_pos[0] + rotation_lst[i][0]
             block.next_pos[1] = pivot_pos[1] + rotation_lst[i][1]
             # next_pos_lst.append([pivot_pos[0] + rotation_lst[i][0], pivot_pos[1] + rotation_lst[i][1]])
-        # todo
-        #  rotation check
-        #  if rotation check passes
 
         rotation_passed = self.check_valid_pos()
         if(not rotation_passed):
@@ -99,6 +106,8 @@ class Tetromino:
         while(self.can_fall()):
             self.fall()
         self.stop_fall()
+        self.game.grid.tile_shake(10,2)
+        self.game.grid.screen_shake(5,10)
 
     def can_fall(self):
         for block in self.blocks:
@@ -112,17 +121,28 @@ class Tetromino:
         :return:
         '''
         # self.game.block_lst = self.game.block_lst + self.blocks
+        self.controllable = False
+        self.stop_blink()
+        self.expire_timer = 10
+        self.start_expire = True
+
+    def expire(self):
+        '''
+        delete the tetromino
+        :return:
+        '''
         #release blocks into tiles
         for block in self.blocks:
             tile = self.game.grid.get_tile(block.grid_pos[0], block.grid_pos[1])
-            if(tile is not None):
-                #self.game.block_lst.append(block)
+            if (tile is not None):
+                # self.game.block_lst.append(block)
                 tile.block = block
                 tile.occupied = True
             else:
                 self.game.out_of_bounds_block()
         self.game.control_tetromino = None
         self.game.grid.check_filled_rows = True
+
 
     def check_valid_pos(self):
         '''
@@ -161,8 +181,7 @@ class Tetromino:
         :return:True if a valid rotation spot can be found
         False if no valid rotation spots are found
         '''
-        #todo
-        # improve push accuracy
+
         #push block out
         for block in self.blocks:
             block.next_pos[0] = block.next_pos[0] - 1
@@ -174,32 +193,50 @@ class Tetromino:
             return True
         return False
 
+    def start_blink(self, speed):
+        self.blink = True
+        self.blink_speed = speed
+        self.blink_frame = 1
+
+    def stop_blink(self):
+        self.blink = False
+        self.blink_speed = 0
+        self.blink_frame = 0
+
+
     def update(self, *args, **kwargs):
+        if(self.start_expire):
+            self.expire_timer -=1
+            if(self.expire_timer<=0):
+                self.expire()
+            return
         #horizontal -> rotation -> soft drop/normal fall -> hard drop
 
         #set each block's next pos to its current pos
         for block in self.blocks:
             block.next_pos = block.grid_pos.copy()
-        #horizontal movement
-        if (args[0][pygame.K_LEFT] == True and self.last_move >= self.move_delay):
-            # if (args[0][pygame.K_DOWN] == True and self.last_soft_drop >= self.soft_drop_delay):
-            #     self.soft_drop()
-            self.move(-1)
-        if (args[0][pygame.K_RIGHT] == True and self.last_move >= self.move_delay):
-            # if (args[0][pygame.K_DOWN] == True and self.last_soft_drop >= self.soft_drop_delay):
-            #     self.soft_drop()
-            self.move(1)
 
-        self.last_soft_drop = self.last_soft_drop + 1
-        self.last_move = self.last_move + 1
+        if(self.controllable):
+            #horizontal movement
+            if (args[0][pygame.K_LEFT] == True and self.last_move >= self.move_delay):
+                # if (args[0][pygame.K_DOWN] == True and self.last_soft_drop >= self.soft_drop_delay):
+                #     self.soft_drop()
+                self.move(-1)
+            if (args[0][pygame.K_RIGHT] == True and self.last_move >= self.move_delay):
+                # if (args[0][pygame.K_DOWN] == True and self.last_soft_drop >= self.soft_drop_delay):
+                #     self.soft_drop()
+                self.move(1)
 
-        #rotation
-        for event in args[1]:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_z:
-                    self.rotate(-1)
-                if event.key == pygame.K_x:
-                    self.rotate(1)
+            self.last_soft_drop = self.last_soft_drop + 1
+            self.last_move = self.last_move + 1
+
+            #rotation
+            for event in args[1]:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_z:
+                        self.rotate(-1)
+                    if event.key == pygame.K_x:
+                        self.rotate(1)
 
         #falling and soft drop
         if (self.falling == True):
@@ -217,34 +254,48 @@ class Tetromino:
                 self.last_fall = 0
         else:
             self.last_stop_fall = self.last_stop_fall - 1
+            if(self.last_stop_fall==25):
+                self.start_blink(6)
+            if(self.last_stop_fall==10):
+                self.start_blink(3)
             if(self.can_fall() == True):
                 self.falling = True
                 self.last_stop_fall = self.stop_fall_delay
+                self.stop_blink()
             elif(self.last_stop_fall <= 0):
                 self.stop_fall()
             # add delay before stop_fall is called
             # set falling back to True if the tetromino can fall again
 
         #hard drop
-        for event in args[1]:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    # print('key up')
-                    self.hard_drop()
-                    return
+        if(self.controllable):
+            for event in args[1]:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        # print('key up')
+                        self.hard_drop()
+                        return
 
     def draw(self, surface, *args, **kwargs):
+        frame = 0
+        if(self.blink):
+            if(self.blink_timer >= self.blink_speed):
+                self.blink_frame = (self.blink_frame + 1) % 2
+                self.blink_timer = 0
+            self.blink_timer = self.blink_timer + 1
+            frame = self.blink_frame
         for block in self.blocks:
-            block.draw(surface)
-
+            block.draw(surface, frame)
 
 class TetrominoBlock:
     def __init__(self, tetromino, grid_pos, size):
         self.tetromino = tetromino
-        self.img = self.tetromino.img
-        self.blink_img = pygame.image.load('assets/Blink Tetrominos/Tetromino' + str(self.tetromino.type) + '.png')
-        self.blink = False
-        self.blink_timer = 0
+        # self.img = self.tetromino.img
+        # self.blink_img = pygame.image.load('assets/Blink Tetrominos/Tetromino' + str(self.tetromino.type) + '.png')
+
+        self.img_lst = [self.tetromino.img,
+                        pygame.image.load('assets/Blink Tetrominos/Tetromino' + str(self.tetromino.type) + '.png')]
+
         self.grid_pos = grid_pos
         self.next_pos = self.grid_pos.copy()
         self.size = size
@@ -271,11 +322,9 @@ class TetrominoBlock:
         # self.next_pos = self.grid_pos.copy()
         pass
 
-    def draw(self, surface, *args, **kwargs):
-        if(self.blink == True):
-            surface.blit(self.blink_img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
-        else:
-            surface.blit(self.img, (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
+    def draw(self, surface, img_id=0, *args, **kwargs):
+        surface.blit(self.img_lst[img_id], (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
+
 
 O_IMG = pygame.image.load('assets/TetrominoO.png')
 class TetrominoO(Tetromino):
