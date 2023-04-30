@@ -103,11 +103,18 @@ class Tetromino:
             #     self.last_stop_fall = self.stop_fall_delay
 
     def hard_drop(self):
+        fall_counter = 0
         while(self.can_fall()):
             self.fall()
+            fall_counter = fall_counter + 1
         self.stop_fall()
-        self.game.grid.tile_shake(10,2)
-        self.game.grid.screen_shake(5,10)
+
+        if (fall_counter > 5):
+            self.game.grid.tile_shake(4 + fall_counter * 0.4, (2, 2))
+            self.game.grid.screen_shake(4+fall_counter*0.4, (1, 1+0.75*fall_counter))
+        else:
+            self.game.grid.tile_shake(fall_counter, (2, 2))
+            self.game.grid.screen_shake(fall_counter, (0, 2))
 
     def can_fall(self):
         for block in self.blocks:
@@ -293,8 +300,7 @@ class TetrominoBlock:
         # self.img = self.tetromino.img
         # self.blink_img = pygame.image.load('assets/Blink Tetrominos/Tetromino' + str(self.tetromino.type) + '.png')
 
-        self.img_lst = [self.tetromino.img,
-                        pygame.image.load('assets/Blink Tetrominos/Tetromino' + str(self.tetromino.type) + '.png')]
+        self.img_lst = self.tetromino.img
 
         self.grid_pos = grid_pos
         self.next_pos = self.grid_pos.copy()
@@ -326,7 +332,8 @@ class TetrominoBlock:
         surface.blit(self.img_lst[img_id], (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
 
 
-O_IMG = pygame.image.load('assets/TetrominoO.png')
+O_IMG = [pygame.image.load('assets/TetrominoO.png'),
+        pygame.image.load('assets/Blink Tetrominos/TetrominoO.png')]
 class TetrominoO(Tetromino):
     def __init__(self, game, start_pos,  size):
         super().__init__(game, start_pos, 'O', O_IMG, size)
@@ -352,7 +359,8 @@ class TetrominoO(Tetromino):
         block = TetrominoBlock(self, [start_pos[0], start_pos[1] + 1], self.size)
         self.blocks.append(block)
 
-L_IMG = pygame.image.load('assets/TetrominoL.png')
+L_IMG = [pygame.image.load('assets/TetrominoL.png'),
+        pygame.image.load('assets/Blink Tetrominos/TetrominoL.png')]
 class TetrominoL(Tetromino):
     def __init__(self, game, start_pos, size):
         super().__init__(game, start_pos, 'L', L_IMG, size)
@@ -392,7 +400,8 @@ class TetrominoL(Tetromino):
         block = TetrominoBlock(self, [start_pos[0], start_pos[1] + 1], self.size)
         self.blocks.append(block)
 
-J_IMG = pygame.image.load('assets/TetrominoJ.png')
+J_IMG = [pygame.image.load('assets/TetrominoJ.png'),
+        pygame.image.load('assets/Blink Tetrominos/TetrominoJ.png')]
 class TetrominoJ(Tetromino):
     def __init__(self, game, start_pos, size):
         super().__init__(game, start_pos, 'J', J_IMG, size)
@@ -432,7 +441,8 @@ class TetrominoJ(Tetromino):
         block = TetrominoBlock(self, [start_pos[0] + 2, start_pos[1] + 1], self.size)
         self.blocks.append(block)
 
-S_IMG = pygame.image.load('assets/TetrominoS.png')
+S_IMG = [pygame.image.load('assets/TetrominoS.png'),
+        pygame.image.load('assets/Blink Tetrominos/TetrominoS.png')]
 class TetrominoS(Tetromino):
     def __init__(self, game, start_pos, size):
         super().__init__(game, start_pos, 'S', S_IMG, size)
@@ -474,7 +484,8 @@ class TetrominoS(Tetromino):
         block = TetrominoBlock(self, [start_pos[0], start_pos[1] + 1], self.size)
         self.blocks.append(block)
 
-Z_IMG = pygame.image.load('assets/TetrominoZ.png')
+Z_IMG = [pygame.image.load('assets/TetrominoZ.png'),
+        pygame.image.load('assets/Blink Tetrominos/TetrominoZ.png')]
 class TetrominoZ(Tetromino):
     def __init__(self, game, start_pos, size):
         super().__init__(game, start_pos, 'Z', Z_IMG, size)
@@ -516,7 +527,8 @@ class TetrominoZ(Tetromino):
         block = TetrominoBlock(self, [start_pos[0] + 2, start_pos[1] + 1], self.size)
         self.blocks.append(block)
 
-T_IMG = pygame.image.load('assets/TetrominoT.png')
+T_IMG = [pygame.image.load('assets/TetrominoT.png'),
+        pygame.image.load('assets/Blink Tetrominos/TetrominoT.png')]
 class TetrominoT(Tetromino):
     def __init__(self, game, start_pos, size):
         super().__init__(game, start_pos, 'T', T_IMG, size)
@@ -559,7 +571,8 @@ class TetrominoT(Tetromino):
         self.blocks.append(block)
 
 
-I_IMG = pygame.image.load('assets/TetrominoI.png')
+I_IMG = [pygame.image.load('assets/TetrominoI.png'),
+        pygame.image.load('assets/Blink Tetrominos/TetrominoI.png')]
 class TetrominoI(Tetromino):
     def __init__(self, game, start_pos, size):
         super().__init__(game, start_pos, 'I', I_IMG, size)

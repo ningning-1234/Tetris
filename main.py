@@ -1,12 +1,10 @@
 import pygame
 from game import Game
+from ui import UI
 
 # todo
-#  add effect when tetromino stops moving
-#  add effect when 2 or more rows are cleared
 #  improve push accuracy
-#  add x and y magnitude to shaking
-#  do not queue more than two of the same tetrominos
+#  add preview to the ui
 run=True
 
 pygame.init()
@@ -21,7 +19,8 @@ FPS = 60
 
 BG_COLOR = pygame.color.Color('0x505070')
 
-game = Game((0,20))
+game = Game((0,0))
+ui = UI
 i=0
 while (run):
     events = pygame.event.get()
@@ -34,6 +33,7 @@ while (run):
     #_____Draw_____
     window.fill(BG_COLOR)
     game.draw(window)
+    ui.draw(window)
 
     pygame.display.flip()
     # print(i)

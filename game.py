@@ -1,6 +1,7 @@
 import pygame
 from random import randint
 from tetrominos import *
+from ui import UIContainer
 
 TILE_SIZE = 30
 tetromino_types = ['O', 'L', 'J', 'S', 'Z', 'T', 'I']
@@ -10,27 +11,34 @@ class Game:
         self.running = False
         #self.block_lst = []
         self.pre_tetrominos = []
+        self.held_tetromino = None
+        self.can_hold = True
         self.control_tetromino = None
         self.prepare_next_tetromino = True
         self.width = 10
         self.game_height = 20
         self.buffer = 5
 
-        self.start_game(self.width, self.game_height, self.buffer)
         self.surface_pos = surface_pos
+
+        self.grid_surface = None
+        self.grid_pos = (0,0)
+        # ui
+        self.ui = GameUI(surface_pos, (600, 800), self)
+
+        self.start_game(self.width, self.game_height, self.buffer)
 
     def start_game(self,width, height, buffer):
         self.grid_surface = pygame.Surface((TILE_SIZE*width, TILE_SIZE*(height+buffer)))
         self.grid = GameGrid(self, width, height, buffer, TILE_SIZE)
-        self.create_tetromino(4)
-        for tetromino in range(0, 5):
-            random_tetromino = randint(0, 6)
-            type1 = tetromino_types[random_tetromino]
-            self.pre_tetrominos.append(type1)
+        # for tetromino in range(0, 5):
+        #     random_tetromino = randint(0, 6)
+        #     type = tetromino_types[random_tetromino]
+        #     self.pre_tetrominos.append(type)
+        self.generate_pretetrominos()
         self.running = True
 
     def create_tetromino(self, spawn_pos, type=''):
-
         if (type not in tetromino_types):
             random_tetromino = randint(0, 6)
             type = tetromino_types[random_tetromino]
@@ -54,32 +62,67 @@ class Game:
         print('out of bounds')
         self.running = False
 
+    def generate_pretetrominos(self):
+        if (len(self.pre_tetrominos) < 5):
+            for tetromino in range(0, 5 - len(self.pre_tetrominos)):
+                random_tetromino = randint(0, 6)
+                type = tetromino_types[random_tetromino]
+                if(len(self.pre_tetrominos) != 0):
+                    while (self.pre_tetrominos[len(self.pre_tetrominos) - 1] == type):
+                        random_tetromino = randint(0, 6)
+                        type = tetromino_types[random_tetromino]
+                self.pre_tetrominos.append(type)
+
+    def hold_tetromino(self):
+        if(self.held_tetromino is None):
+            self.held_tetromino = self.control_tetromino.type
+            self.create_tetromino(4, self.pre_tetrominos[0])
+        else:
+            temp_hold = self.control_tetromino.type
+            self.create_tetromino(4, self.held_tetromino)
+            self.held_tetromino = temp_hold
+
     def update(self, *args, **kwargs):
         if(self.running==False):
             return
         # self.grid.print_grid()
         if (self.control_tetromino is not None):
             self.control_tetromino.update(args[0], args[1])
+            for event in args[1]:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_c and self.can_hold == True:
+                        self.hold_tetromino()
+                        self.can_hold = False
         else:
             if(self.prepare_next_tetromino):
                 self.create_tetromino(4, self.pre_tetrominos[0])
                 self.pre_tetrominos.remove(self.pre_tetrominos[0])
-                if (len(self.pre_tetrominos) < 5):
-                    for tetromino in range(0, 5-len(self.pre_tetrominos)):
-                        random_tetromino = randint(0, 6)
-                        type1 = tetromino_types[random_tetromino]
-                        self.pre_tetrominos.append(type1)
+                self.can_hold = True
+                # if (len(self.pre_tetrominos) < 5):
+                #     for tetromino in range(0, 5-len(self.pre_tetrominos)):
+                #         random_tetromino = randint(0, 6)
+                #         type = tetromino_types[random_tetromino]
+                #         while(self.pre_tetrominos[len(self.pre_tetrominos)-1] == type):
+                #             random_tetromino = randint(0, 6)
+                #             type = tetromino_types[random_tetromino]
+                #         self.pre_tetrominos.append(type)
+                self.generate_pretetrominos()
                 print(self.pre_tetrominos)
         self.grid.update()
 
     def draw(self, surface, *args, **kwargs):
+        # screen shake
         if(self.grid.screen_shake_time>0):
             self.grid.screen_shake_time -=1
-            mag = self.grid.screen_shake_mag
-            offset = (randint(-mag, mag), randint(-mag, mag))
-            surface.blit(self.grid_surface, (self.surface_pos[0] + offset[0], self.surface_pos[1] + offset[1]))
+            mag = (int(self.grid.screen_shake_mag[0]),int(self.grid.screen_shake_mag[1]))
+            offset = (randint(-mag[0], mag[0]), randint(-mag[1], mag[1]))
+            surface.blit(self.grid_surface,
+                         (self.surface_pos[0] + offset[0] + self.grid_pos[0],
+                          self.surface_pos[1] + offset[1] + self.grid_pos[1]))
         else:
-            surface.blit(self.grid_surface, (self.surface_pos[0], self.surface_pos[1]))
+            surface.blit(self.grid_surface,
+                         (self.surface_pos[0] + self.grid_pos[0],
+                          self.surface_pos[1] + self.grid_pos[1]))
         self.grid_surface.fill(pygame.color.Color('0x000000'))
         self.grid.draw(self.grid_surface)
 
@@ -112,10 +155,10 @@ class GameGrid:
         self.create_grid()
 
         self.screen_shake_time = 0
-        self.screen_shake_mag = 0
+        self.screen_shake_mag = (0,0)
 
         self.tile_shake_time = 0
-        self.tile_shake_mag = 0
+        self.tile_shake_mag = (0,0)
 
     def screen_shake(self, duration, mag):
         self.screen_shake_time = duration
@@ -199,10 +242,10 @@ class GameGrid:
                 tile.occupied = False
 
     def update(self, *args, **kwargs):
-        if(self.screen_shake_time<=0):
-            self.screen_shake_mag=0
-        if(self.tile_shake_time<=0):
-            self.tile_shake_mag=0
+        if(self.screen_shake_time <= 0):
+            self.screen_shake_mag = (0, 0)
+        if(self.tile_shake_time <= 0):
+            self.tile_shake_mag = (0, 0)
 
         # check for filled rows
         if(self.check_filled_rows == True):
@@ -216,10 +259,13 @@ class GameGrid:
             self.clear_row_timer = self.clear_row_timer - 1
             print(self.clear_row_timer)
             if(self.clear_row_timer <= 0):
+                rows_cleared = 0
                 for row in self.filled_rows:
                     self.clear_row(row)
+                    rows_cleared = rows_cleared + 1
                     for above in range(row-1,0,-1):
                         self.drop_row(above)
+                self.screen_shake(rows_cleared*3+2, (4+3*rows_cleared, 1))
                 self.filled_rows = []
         # check top
         for x in range(0, self.width,1):
@@ -231,7 +277,7 @@ class GameGrid:
         # print('grid update')
 
     def draw(self, surface, *args, **kwargs):
-        mag=0
+        mag=(0, 0)
         if(self.tile_shake_time>0):
             self.tile_shake_time-=1
             mag=self.tile_shake_mag
@@ -274,7 +320,7 @@ class Tile:
         else:
             self.occupied = True
 
-    def draw(self, surface, shake_mag=0, *args, **kwargs):
+    def draw(self, surface, shake_mag=(0, 0), *args, **kwargs):
         pos_rect = [self.grid_pos[0] * self.size,
                     self.grid_pos[1] * self.size,
                     self.size,self.size]
@@ -287,8 +333,28 @@ class Tile:
                 else:
                     surface.blit(self.block.img_lst[0], pos_rect)
             else:
-                if(shake_mag>0):
-                    offset = (randint(-shake_mag,shake_mag), randint(-shake_mag,shake_mag))
+                if (shake_mag[0]>0 or shake_mag[1]>0):
+                    offset = (randint(int(-shake_mag[0]),int(shake_mag[0])),
+                              randint(int(-shake_mag[1]),int(shake_mag[1])))
                     pos_rect[0] = pos_rect[0] + offset[0]
                     pos_rect[1] = pos_rect[1] + offset[1]
                 surface.blit(self.img, pos_rect)
+
+PV_IMGS = {}
+for t in tetromino_types:
+    PV_IMGS[t] = pygame.image.load('assets/Preveiw Tetrominos/Tetromino' + t +'.png')
+class GameUI(UIContainer):
+    def __init__(self, pos, size, game):
+        super(GameUI, self).__init__(pos, size)
+        self.game = game
+
+    def draw(self, surface, *args, **kwargs):
+        super().draw(surface)
+        pygame.draw.rect(self.surface, (0, 0, 0), (300, 0, 210, 645))
+        for tetromino in range(0, len(self.game.pre_tetrominos)):
+            pv0_img = PV_IMGS[self.game.pre_tetrominos[tetromino]]
+            if(tetromino!= 0):
+                #pv0_img = pygame.transform.scale(pv0_img, (pv0_img.get_width()*0.5, pv0_img.get_height()*0.5))
+                self.surface.blit(pv0_img, (300+15, tetromino * 120 + 30))
+            else:
+                self.surface.blit(pv0_img, (300+15, tetromino + 15))
