@@ -4,13 +4,13 @@ from ui import UI
 
 # todo
 #  improve push accuracy
-#  add preview to the ui
+#  add hold ui
 run=True
 
 pygame.init()
 pygame.font.init()
 
-WIN_WIDTH = 600
+WIN_WIDTH = 720
 WIN_HEIGHT = 800
 window = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 

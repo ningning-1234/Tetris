@@ -22,9 +22,9 @@ class Game:
         self.surface_pos = surface_pos
 
         self.grid_surface = None
-        self.grid_pos = (0,0)
+        self.grid_pos = (210,0)
         # ui
-        self.ui = GameUI(surface_pos, (600, 800), self)
+        self.ui = GameUI(surface_pos, (720, 800), self)
 
         self.start_game(self.width, self.game_height, self.buffer)
 
@@ -36,6 +36,7 @@ class Game:
         #     type = tetromino_types[random_tetromino]
         #     self.pre_tetrominos.append(type)
         self.generate_pretetrominos()
+        self.pre_tetrominos[0]='T'
         self.running = True
 
     def create_tetromino(self, spawn_pos, type=''):
@@ -131,7 +132,8 @@ class Game:
 
         # for block in self.block_lst:
         #     block.draw(surface)
-
+# FILLED= [(0,24),(1,24),(2,24),(3,24),(4,24),(6,24),(7,24),(6,22)]
+FILLED= [(0,24),(1,24),(2,24),(6,24),(7,24),(6,22),(3,23),(6,23)]
 class GameGrid:
     def __init__(self, game, width, height, buffer, tile_size):
         self.game = game
@@ -174,6 +176,11 @@ class GameGrid:
                 tile = Tile(self, (width, height), self.tile_size, (height>=self.buffer))
                 self.grid.append(tile)
                 # print(tile.in_game)
+        for x, y in FILLED:
+            t = self.get_tile(x,y)
+            t.occupied = True
+            t.block=TetrominoBlock(Tetromino(self.game, [-100,-100], 'L', L_IMG, self.tile_size),
+                                   [x,y], self.tile_size)
 
     def get_tile(self, x, y):
         if(x<0 or y<0):
@@ -282,7 +289,7 @@ class GameGrid:
             self.tile_shake_time-=1
             mag=self.tile_shake_mag
         for tile in self.grid:
-            tile.draw(surface,mag)
+            tile.draw(surface, mag)
 
     def print_grid(self):
         for height in range(0, self.height):
@@ -350,11 +357,17 @@ class GameUI(UIContainer):
 
     def draw(self, surface, *args, **kwargs):
         super().draw(surface)
-        pygame.draw.rect(self.surface, (0, 0, 0), (300, 0, 210, 645))
+        pygame.draw.rect(self.surface, (0, 0, 0), (510, 0, 210, 645))
+        pygame.draw.rect(self.surface, (0, 0, 0), (0, 0, 210, 150))
         for tetromino in range(0, len(self.game.pre_tetrominos)):
             pv0_img = PV_IMGS[self.game.pre_tetrominos[tetromino]]
-            if(tetromino!= 0):
+            if(tetromino != 0):
                 #pv0_img = pygame.transform.scale(pv0_img, (pv0_img.get_width()*0.5, pv0_img.get_height()*0.5))
-                self.surface.blit(pv0_img, (300+15, tetromino * 120 + 30))
+                self.surface.blit(pv0_img, (510+15, tetromino * 120 + 30))
             else:
-                self.surface.blit(pv0_img, (300+15, tetromino + 15))
+                self.surface.blit(pv0_img, (510+15, tetromino + 15))
+        if(self.game.held_tetromino is not None):
+            hold_img = pygame.image.load('assets/Preveiw Tetrominos/Tetromino' + self.game.held_tetromino + '.png')
+            self.surface.blit(hold_img, (15, 15))
+        if(self.game.can_hold != True):
+            pygame.draw.rect(self.surface, (255, 0, 0), (0, 0, 210, 150),width=15)
