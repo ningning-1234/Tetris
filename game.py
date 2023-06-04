@@ -36,7 +36,7 @@ class Game:
         #     type = tetromino_types[random_tetromino]
         #     self.pre_tetrominos.append(type)
         self.generate_pretetrominos()
-        self.pre_tetrominos[0]='T'
+        self.pre_tetrominos[0]='I'
         self.running = True
 
     def create_tetromino(self, spawn_pos, type=''):
@@ -75,9 +75,13 @@ class Game:
                 self.pre_tetrominos.append(type)
 
     def hold_tetromino(self):
+        #first hold
         if(self.held_tetromino is None):
             self.held_tetromino = self.control_tetromino.type
-            self.create_tetromino(4, self.pre_tetrominos[0])
+            self.control_tetromino = None
+            self.prepare_next_tetromino = True
+            # self.create_tetromino(4, self.pre_tetrominos[0])
+        #subsequent holds
         else:
             temp_hold = self.control_tetromino.type
             self.create_tetromino(4, self.held_tetromino)
@@ -94,6 +98,10 @@ class Game:
                     if event.key == pygame.K_c and self.can_hold == True:
                         self.hold_tetromino()
                         self.can_hold = False
+                    if event.key == pygame.K_v:
+                        self.grid.garbage_counter += 1
+                        print('garbage: ' +str(self.grid.garbage_counter))
+                        #self.grid.generate_garbage_row()
         else:
             if(self.prepare_next_tetromino):
                 self.create_tetromino(4, self.pre_tetrominos[0])
@@ -109,6 +117,7 @@ class Game:
                 #         self.pre_tetrominos.append(type)
                 self.generate_pretetrominos()
                 print(self.pre_tetrominos)
+                self.prepare_next_tetromino = False
         self.grid.update()
 
     def draw(self, surface, *args, **kwargs):
@@ -133,7 +142,8 @@ class Game:
         # for block in self.block_lst:
         #     block.draw(surface)
 # FILLED= [(0,24),(1,24),(2,24),(3,24),(4,24),(6,24),(7,24),(6,22)]
-FILLED= [(0,24),(1,24),(2,24),(6,24),(7,24),(6,22),(3,23),(6,23)]
+# FILLED= [(0,24),(1,24),(2,24),(6,24),(7,24),(6,22),(3,23),(6,23)]
+FILLED = []
 class GameGrid:
     def __init__(self, game, width, height, buffer, tile_size):
         self.game = game
@@ -147,11 +157,14 @@ class GameGrid:
 
         # time before row is cleared
         self.clear_row_buffer = 5
-        self.clear_row_timer = self.clear_row_buffer
+        self.clear_row_timer = 0
 
         # whether to check for filled rows
         self.check_filled_rows = False
         self.filled_rows = []
+
+        # garbage rows
+        self.garbage_counter = 0
 
         self.grid = []
         self.create_grid()
@@ -179,8 +192,7 @@ class GameGrid:
         for x, y in FILLED:
             t = self.get_tile(x,y)
             t.occupied = True
-            t.block=TetrominoBlock(Tetromino(self.game, [-100,-100], 'L', L_IMG, self.tile_size),
-                                   [x,y], self.tile_size)
+            t.block=GarbageBlock([x,y], self.tile_size)
 
     def get_tile(self, x, y):
         if(x<0 or y<0):
@@ -232,11 +244,10 @@ class GameGrid:
             self.get_tile(x_pos, row_num).block = None
             self.get_tile(x_pos, row_num).blink = False
 
-    def drop_row(self, row_num, drops=1):
+    def drop_row(self, row_num):
         '''
-        Drops all the blocks in a row down by a given amount
+        Drops all the blocks in a row down by one row
         :param row_num: Row to be dropped
-        :param drops: Number of rows to drop
         :return:
         '''
         #print(row_num)
@@ -248,7 +259,41 @@ class GameGrid:
                 tile.block = None
                 tile.occupied = False
 
+    def raise_row(self, row_num):
+        for tile in self.get_row(row_num):
+            if(tile.occupied == True or tile.block is not None):
+                above_tile = self.get_tile(tile.grid_pos[0], tile.grid_pos[1] - 1)
+                if (above_tile is not None):
+                    above_tile.block = tile.block
+                    above_tile.occupied = True
+                    tile.block = None
+                    tile.occupied = False
+                else:
+                    return
+
+    def generate_garbage_row(self, gap=-1):
+        '''
+        Generates one row of garbage blocks
+        :param gap: The position of the gap. -1 for random, -2 for no gap
+        :return:
+        '''
+        if(gap==-1):
+            gap = randint(0, self.game.width-1)
+        for row in range(0, self.height):
+            self.raise_row(row)
+        for tile in range(0, self.width):
+            if(tile != gap):
+                garbage_block = GarbageBlock([tile, self.height-1], self.tile_size)
+                self.get_tile(tile, self.height-1).block = garbage_block
+                self.get_tile(tile, self.height-1).occupied = True
+        if(self.game.control_tetromino is not None):
+            self.game.control_tetromino.update_ghost_blocks()
+
+        # push existing blocks upwards
+        # add buffer before garbage is generated
+
     def update(self, *args, **kwargs):
+        tetromino_active =  self.game.control_tetromino is not None
         if(self.screen_shake_time <= 0):
             self.screen_shake_mag = (0, 0)
         if(self.tile_shake_time <= 0):
@@ -262,11 +307,12 @@ class GameGrid:
                 for tiles in self.get_row(row):
                     tiles.blink = True
             self.clear_row_timer = self.clear_row_buffer
+        #clear filled rows
+        rows_cleared = 0
         if(len(self.filled_rows) > 0):
             self.clear_row_timer = self.clear_row_timer - 1
             print(self.clear_row_timer)
             if(self.clear_row_timer <= 0):
-                rows_cleared = 0
                 for row in self.filled_rows:
                     self.clear_row(row)
                     rows_cleared = rows_cleared + 1
@@ -274,6 +320,19 @@ class GameGrid:
                         self.drop_row(above)
                 self.screen_shake(rows_cleared*3+2, (4+3*rows_cleared, 1))
                 self.filled_rows = []
+        if (self.garbage_counter >0 and
+                not tetromino_active and
+                len(self.filled_rows )==0):
+            print(self.garbage_counter)
+            if(rows_cleared == 4):
+                self.garbage_counter -= 4
+            else:
+                self.garbage_counter -= (rows_cleared - 1)
+            for row in range(0,self.garbage_counter,1):
+                self.generate_garbage_row(-1)
+                self.garbage_counter -= 1
+            if(self.garbage_counter<=0):
+                self.garbage_counter=0
         # check top
         for x in range(0, self.width,1):
             for y in range(0, self.buffer,1):
@@ -281,6 +340,10 @@ class GameGrid:
                 if(t.block is not None and t.in_game==False):
                     print('game over')
                     self.game.running = False
+        if(not tetromino_active and
+            len(self.filled_rows)==0
+        ):
+            self.game.prepare_next_tetromino = True
         # print('grid update')
 
     def draw(self, surface, *args, **kwargs):
@@ -358,7 +421,7 @@ class GameUI(UIContainer):
     def draw(self, surface, *args, **kwargs):
         super().draw(surface)
         pygame.draw.rect(self.surface, (0, 0, 0), (510, 0, 210, 645))
-        pygame.draw.rect(self.surface, (0, 0, 0), (0, 0, 210, 150))
+        pygame.draw.rect(self.surface, (25, 25, 25), (0, 0, 210, 150))
         for tetromino in range(0, len(self.game.pre_tetrominos)):
             pv0_img = PV_IMGS[self.game.pre_tetrominos[tetromino]]
             if(tetromino != 0):
@@ -370,4 +433,4 @@ class GameUI(UIContainer):
             hold_img = pygame.image.load('assets/Preveiw Tetrominos/Tetromino' + self.game.held_tetromino + '.png')
             self.surface.blit(hold_img, (15, 15))
         if(self.game.can_hold != True):
-            pygame.draw.rect(self.surface, (255, 0, 0), (0, 0, 210, 150),width=15)
+            pygame.draw.rect(self.surface, (0, 0, 0), (0, 0, 210, 150),width=15)

@@ -24,7 +24,7 @@ class UIManager:
         for elem in self.elements:
             elem.draw(surface, args, kwargs)
 
-UI = UIManager()
+UI_MANAGER = UIManager()
 
 class UIContainer:
     def __init__(self, pos, size):
@@ -32,7 +32,7 @@ class UIContainer:
         self.pos = pos
         self.size = size
         self.surface = pygame.Surface((self.size[0], self.size[1]), pygame.SRCALPHA,32)
-        UI.add_elem(self)
+        UI_MANAGER.add_elem(self)
 
 
     def update(self, *args, **kwargs):

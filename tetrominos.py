@@ -11,11 +11,12 @@ class Tetromino:
         self.blocks = []
         self.pivot_index = 0
         self.create_blocks(start_pos)
+        self.update_ghost_blocks()
         self.rotation = 0
         self.falling = True
 
         # self.fall_delay = 15
-        self.fall_delay = 20000
+        self.fall_delay = 20
         self.last_fall = 0
 
         self.move_delay = 5
@@ -24,7 +25,8 @@ class Tetromino:
         self.soft_drop_delay = 5
         self.last_soft_drop = self.soft_drop_delay
 
-        self.stop_fall_delay = 300
+        self.max_stop_fall_delay = 60
+        self.stop_fall_delay =  self.max_stop_fall_delay
         self.last_stop_fall = self.stop_fall_delay
 
         self.blink = False
@@ -35,18 +37,26 @@ class Tetromino:
         self.controllable = True
 
         self.start_expire = False
-        self.expire_timer = 0
+        self.max_expire_time = 0
 
         self.push_matrix = {
             (0, 1): [(-1, 0), (-1, 1), (0, -2), (-1, -2)],
             (1, 0): [(1, 0), (1, -1), (0, 2), (1, 2)],
             (1, 2): [(1, 0), (1, -1), (0, 2), (1, 2)],
             (2, 1): [(-1, 0), (-1, 1), (0, -2), (1, -2)],
-            (2, 3): [],
-            (3, 2): [],
-            (3, 0): [],
-            (0, 3): []
+            (2, 3): [(1, 0), (1, 1), (0, -2), (1, -2)],
+            (3, 2): [(-1, 0), (-1, -1), (0, 2), (-1, 2)],
+            (3, 0): [(-1, 0), (-1, -1), (0, 2), (-1, 2)],
+            (0, 3): [(1, 0), (1, 1), (0, -2), (1, -2)]
         }
+    # (-2, 0)(+1, 0)(-2, -1)(+1, +2)
+    # (+2, 0)(-1, 0)(+2, +1)(-1, -2)
+    # (-1, 0)(+2, 0)(-1, +2)(+2, -1)
+    # (+1, 0)(-2, 0)(+1, -2)(-2, +1)
+    # (+2, 0)(-1, 0)(+2, +1)(-1, -2)
+    # (-2, 0)(+1, 0)(-2, -1)(+1, +2)
+    # (+1, 0)(-2, 0)(+1, -2)(-2, +1)
+    # (-1, 0)(+2, 0)(-1, +2)(+2, -1)
 
     def create_blocks(self, start_pos):
         pass
@@ -63,6 +73,7 @@ class Tetromino:
                 block.go_to_next_pos()
             block.next_pos = block.grid_pos.copy()
             self.last_move = 0
+        self.update_ghost_blocks()
 
     def soft_drop(self):
         self.fall()
@@ -71,9 +82,17 @@ class Tetromino:
     def fall(self):
         for block in self.blocks:
             block.fall()
+        if(self.stop_fall_delay < self.max_stop_fall_delay):
+            self.stop_fall_delay = min(self.stop_fall_delay + 1, self.max_stop_fall_delay)
+        self.update_ghost_blocks()
 
     def find_landing_spot(self):
-        return 0
+        distance = None
+        for block in self.blocks:
+            block_distance = block.find_fall_distance()
+            if(distance is None or block_distance<distance):
+                distance = block_distance
+        return distance
 
     def rotate(self, dir):
         '''
@@ -105,6 +124,7 @@ class Tetromino:
             # if(not self.falling):
             #     self.stop_fall_delay = self.stop_fall_delay-10
             #     self.last_stop_fall = self.stop_fall_delay
+        self.update_ghost_blocks()
 
     def hard_drop(self):
         fall_counter = 0
@@ -245,6 +265,11 @@ class Tetromino:
         self.blink_speed = 0
         self.blink_frame = 0
 
+    def update_ghost_blocks(self):
+        distance = self.find_landing_spot()
+        for block in self.blocks:
+            block.ghost_block.distance = distance
+
     def update(self, *args, **kwargs):
         if (self.start_expire):
             self.expire_timer -= 1
@@ -294,7 +319,9 @@ class Tetromino:
                 self.fall()
                 self.last_fall = 0
         else:
+            print('cannot fall ' + str(self.last_stop_fall))
             self.last_stop_fall = self.last_stop_fall - 1
+            self.stop_fall_delay -= 0.5
             if (self.last_stop_fall == 25):
                 self.start_blink(6)
             if (self.last_stop_fall == 10):
@@ -326,8 +353,9 @@ class Tetromino:
             self.blink_timer = self.blink_timer + 1
             frame = self.blink_frame
         for block in self.blocks:
+            block.ghost_block.draw(surface)
+        for block in self.blocks:
             block.draw(surface, frame)
-
 
 class TetrominoBlock:
     def __init__(self, tetromino, grid_pos, size):
@@ -335,10 +363,12 @@ class TetrominoBlock:
         # self.img = self.tetromino.img
         # self.blink_img = pygame.image.load('assets/Blink Tetrominos/Tetromino' + str(self.tetromino.type) + '.png')
 
-        self.img_lst = self.tetromino.img
+        if(self.tetromino is not None):
+            self.img_lst = self.tetromino.img
 
         self.grid_pos = grid_pos
         self.next_pos = self.grid_pos.copy()
+        self.ghost_block = GhostTetrominoBlock(self.img_lst[2], self)
         self.size = size
 
     def go_to_next_pos(self):
@@ -348,16 +378,24 @@ class TetrominoBlock:
     def fall(self):
         self.grid_pos[1] = self.grid_pos[1] + 1
 
-    def can_fall(self):
-        if (self.grid_pos[1] + 1 >= self.tetromino.game.grid.height):
+    def can_fall(self, pos = None):
+        if (pos == None):
+            pos = self.grid_pos
+        if (pos[1] + 1 >= self.tetromino.game.grid.height):
             return False
 
         # for block in self.tetromino.game.block_lst:
         #     if (self.grid_pos[0] == block.grid_pos[0] and self.grid_pos[1] + 1 == block.grid_pos[1]):
-        if (self.tetromino.game.grid.get_tile(self.grid_pos[0], self.grid_pos[1] + 1) is not None):
-            if (self.tetromino.game.grid.get_tile(self.grid_pos[0], self.grid_pos[1] + 1).occupied == True):
+        if (self.tetromino.game.grid.get_tile(pos[0], pos[1] + 1) is not None):
+            if (self.tetromino.game.grid.get_tile(pos[0], pos[1] + 1).occupied == True):
                 return False
         return True
+
+    def find_fall_distance(self):
+        fall_counter = 0
+        while (self.can_fall((self.grid_pos[0], self.grid_pos[1] + fall_counter))):
+            fall_counter = fall_counter + 1
+        return fall_counter
 
     def update(self, *args, **kwargs):
         # self.next_pos = self.grid_pos.copy()
@@ -366,10 +404,30 @@ class TetrominoBlock:
     def draw(self, surface, img_id=0, *args, **kwargs):
         surface.blit(self.img_lst[img_id], (self.grid_pos[0] * self.size, self.grid_pos[1] * self.size))
 
+GARBAGE_IMG = [pygame.image.load('assets/Garbage Block.png'),
+         pygame.image.load('assets/Blink Tetrominos/Garbage Block.png'),
+         pygame.image.load('assets/Ghost Tetrominos/Garbage Block.png')
+         ]
+class GarbageBlock(TetrominoBlock):
+    def __init__(self, grid_pos, size):
+        self.img_lst = GARBAGE_IMG
+        super().__init__(None, grid_pos, size)
+
+class GhostTetrominoBlock():
+    def __init__(self, img, block):
+        self.img = img
+        self.block = block
+        self.distance = 0
+
+    def draw(self, surface, *args, **kwargs):
+        surface.blit(self.img,
+                    (self.block.grid_pos[0] * self.block.size,
+                    (self.block.grid_pos[1] + self.distance) * self.block.size))
 
 O_IMG = [pygame.image.load('assets/TetrominoO.png'),
-         pygame.image.load('assets/Blink Tetrominos/TetrominoO.png')]
-
+         pygame.image.load('assets/Blink Tetrominos/TetrominoO.png'),
+         pygame.image.load('assets/Ghost Tetrominos/TetrominoO.png')
+         ]
 
 class TetrominoO(Tetromino):
     def __init__(self, game, start_pos, size):
@@ -396,10 +454,10 @@ class TetrominoO(Tetromino):
         block = TetrominoBlock(self, [start_pos[0], start_pos[1] + 1], self.size)
         self.blocks.append(block)
 
-
 L_IMG = [pygame.image.load('assets/TetrominoL.png'),
-         pygame.image.load('assets/Blink Tetrominos/TetrominoL.png')]
-
+         pygame.image.load('assets/Blink Tetrominos/TetrominoL.png'),
+         pygame.image.load('assets/Ghost Tetrominos/TetrominoL.png')
+         ]
 
 class TetrominoL(Tetromino):
     def __init__(self, game, start_pos, size):
@@ -442,8 +500,9 @@ class TetrominoL(Tetromino):
 
 
 J_IMG = [pygame.image.load('assets/TetrominoJ.png'),
-         pygame.image.load('assets/Blink Tetrominos/TetrominoJ.png')]
-
+         pygame.image.load('assets/Blink Tetrominos/TetrominoJ.png'),
+         pygame.image.load('assets/Ghost Tetrominos/TetrominoJ.png')
+         ]
 
 class TetrominoJ(Tetromino):
     def __init__(self, game, start_pos, size):
@@ -486,8 +545,9 @@ class TetrominoJ(Tetromino):
 
 
 S_IMG = [pygame.image.load('assets/TetrominoS.png'),
-         pygame.image.load('assets/Blink Tetrominos/TetrominoS.png')]
-
+         pygame.image.load('assets/Blink Tetrominos/TetrominoS.png'),
+         pygame.image.load('assets/Ghost Tetrominos/TetrominoS.png')
+         ]
 
 class TetrominoS(Tetromino):
     def __init__(self, game, start_pos, size):
@@ -532,8 +592,9 @@ class TetrominoS(Tetromino):
 
 
 Z_IMG = [pygame.image.load('assets/TetrominoZ.png'),
-         pygame.image.load('assets/Blink Tetrominos/TetrominoZ.png')]
-
+         pygame.image.load('assets/Blink Tetrominos/TetrominoZ.png'),
+         pygame.image.load('assets/Ghost Tetrominos/TetrominoZ.png')
+         ]
 
 class TetrominoZ(Tetromino):
     def __init__(self, game, start_pos, size):
@@ -578,8 +639,9 @@ class TetrominoZ(Tetromino):
 
 
 T_IMG = [pygame.image.load('assets/TetrominoT.png'),
-         pygame.image.load('assets/Blink Tetrominos/TetrominoT.png')]
-
+         pygame.image.load('assets/Blink Tetrominos/TetrominoT.png'),
+         pygame.image.load('assets/Ghost Tetrominos/TetrominoT.png')
+         ]
 
 class TetrominoT(Tetromino):
     def __init__(self, game, start_pos, size):
@@ -627,7 +689,9 @@ class TetrominoT(Tetromino):
 
 
 I_IMG = [pygame.image.load('assets/TetrominoI.png'),
-         pygame.image.load('assets/Blink Tetrominos/TetrominoI.png')]
+         pygame.image.load('assets/Blink Tetrominos/TetrominoI.png'),
+         pygame.image.load('assets/Ghost Tetrominos/TetrominoI.png')
+         ]
 
 
 class TetrominoI(Tetromino):
@@ -654,6 +718,16 @@ class TetrominoI(Tetromino):
             ((0, 1), (0, 0), (0, -1), (0, -2)),
         )
         self.pivot_index = 1
+        self.push_matrix = {
+            (0, 1): [(-2, 0), (1, 0), (-2, -1), (1, 2)],
+            (1, 0): [(2, 0), (-1, 0), (2, 1), (-1, -2)],
+            (1, 2): [(-1, 0), (2, 0), (-1, 2), (2, -1)],
+            (2, 1): [(1, 0), (-2, 0), (1, -2), (-2, 1)],
+            (2, 3): [(2, 0), (-1, 0), (2, 1), (-1, -2)],
+            (3, 2): [(-2, 0), (1, 0), (-2, -1), (1, 2)],
+            (3, 0): [(1, 0), (-2, 0), (1, -2), (-2, 1)],
+            (0, 3): [(-1, 0), (2, 0), (-1, 2), (2, -1)]
+        }
 
     def get_next_rotation_pos(self, next_rotation):
         super().get_next_rotation_pos(next_rotation)
