@@ -34,7 +34,6 @@ class UIContainer:
         self.surface = pygame.Surface((self.size[0], self.size[1]), pygame.SRCALPHA,32)
         UI_MANAGER.add_elem(self)
 
-
     def update(self, *args, **kwargs):
         pass
 

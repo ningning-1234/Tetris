@@ -16,7 +16,7 @@ class Tetromino:
         self.falling = True
 
         # self.fall_delay = 15
-        self.fall_delay = 20
+        self.fall_delay = 9999999
         self.last_fall = 0
 
         self.move_delay = 5
@@ -26,7 +26,7 @@ class Tetromino:
         self.last_soft_drop = self.soft_drop_delay
 
         self.max_stop_fall_delay = 60
-        self.stop_fall_delay =  self.max_stop_fall_delay
+        self.stop_fall_delay = self.max_stop_fall_delay
         self.last_stop_fall = self.stop_fall_delay
 
         self.blink = False
@@ -154,7 +154,8 @@ class Tetromino:
         # self.game.block_lst = self.game.block_lst + self.blocks
         self.controllable = False
         self.stop_blink()
-        self.expire_timer = 10
+        self.game.can_hold = False
+        self.expire_timer = 15
         self.start_expire = True
 
     def expire(self):
@@ -173,6 +174,7 @@ class Tetromino:
                 self.game.out_of_bounds_block()
         self.game.control_tetromino = None
         self.game.grid.check_filled_rows = True
+        self.game.can_hold = True
 
     def check_valid_pos(self):
         '''
@@ -284,11 +286,11 @@ class Tetromino:
 
         if (self.controllable):
             # horizontal movement
-            if (args[0][pygame.K_LEFT] == True and self.last_move >= self.move_delay):
+            if (args[0][self.game.controls['LEFT']] == True and self.last_move >= self.move_delay):
                 # if (args[0][pygame.K_DOWN] == True and self.last_soft_drop >= self.soft_drop_delay):
                 #     self.soft_drop()
                 self.move(-1)
-            if (args[0][pygame.K_RIGHT] == True and self.last_move >= self.move_delay):
+            if (args[0][self.game.controls['RIGHT']] == True and self.last_move >= self.move_delay):
                 # if (args[0][pygame.K_DOWN] == True and self.last_soft_drop >= self.soft_drop_delay):
                 #     self.soft_drop()
                 self.move(1)
@@ -299,9 +301,9 @@ class Tetromino:
             # rotation
             for event in args[1]:
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_z:
+                    if event.key == self.game.controls['ROTATE LEFT']:
                         self.rotate(-1)
-                    if event.key == pygame.K_x:
+                    if event.key == self.game.controls['ROTATE RIGHT']:
                         self.rotate(1)
 
         # falling and soft drop
@@ -312,7 +314,7 @@ class Tetromino:
                 return
             self.last_fall = self.last_fall + 1
             # soft drop
-            if (args[0][pygame.K_DOWN] == True and self.last_soft_drop >= self.soft_drop_delay):
+            if (args[0][self.game.controls['SOFT DROP']] == True and self.last_soft_drop >= self.soft_drop_delay):
                 self.soft_drop()
                 self.last_fall = 0
             elif (self.last_fall >= self.fall_delay):
@@ -322,9 +324,10 @@ class Tetromino:
             print('cannot fall ' + str(self.last_stop_fall))
             self.last_stop_fall = self.last_stop_fall - 1
             self.stop_fall_delay -= 0.5
-            if (self.last_stop_fall == 25):
+            print(self.stop_fall_delay)
+            if (round(self.last_stop_fall) == 25):
                 self.start_blink(6)
-            if (self.last_stop_fall == 10):
+            if (round(self.last_stop_fall) == 10):
                 self.start_blink(3)
             if (self.can_fall() == True):
                 self.falling = True
@@ -339,13 +342,14 @@ class Tetromino:
         if (self.controllable):
             for event in args[1]:
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_UP:
+                    if event.key == self.game.controls['HARD DROP']:
                         # print('key up')
                         self.hard_drop()
                         return
 
     def draw(self, surface, *args, **kwargs):
         frame = 0
+        # print(self.blink)
         if (self.blink):
             if (self.blink_timer >= self.blink_speed):
                 self.blink_frame = (self.blink_frame + 1) % 2

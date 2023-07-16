@@ -1,3 +1,5 @@
+import datetime
+
 import pygame
 from random import randint
 from tetrominos import *
@@ -6,7 +8,7 @@ from ui import UIContainer
 TILE_SIZE = 30
 tetromino_types = ['O', 'L', 'J', 'S', 'Z', 'T', 'I']
 class Game:
-    def __init__(self, surface_pos = (0,0)):
+    def __init__(self, controls, surface_pos, game_type = 'Race'):
         self.grid = None
         self.running = False
         #self.block_lst = []
@@ -22,9 +24,20 @@ class Game:
         self.surface_pos = surface_pos
 
         self.grid_surface = None
-        self.grid_pos = (210,0)
+        self.grid_pos = (140,0)
         # ui
         self.ui = GameUI(surface_pos, (720, 800), self)
+
+        self.opponents = []
+
+        self.controls = controls
+
+        self.line_counter = 0
+
+        self.start_time = datetime.datetime.now()
+        self.time_passed = datetime.datetime.now() - self.start_time
+
+        self.game_type = game_type
 
         self.start_game(self.width, self.game_height, self.buffer)
 
@@ -36,7 +49,7 @@ class Game:
         #     type = tetromino_types[random_tetromino]
         #     self.pre_tetrominos.append(type)
         self.generate_pretetrominos()
-        self.pre_tetrominos[0]='I'
+        self.start_time = datetime.datetime.now()
         self.running = True
 
     def create_tetromino(self, spawn_pos, type=''):
@@ -91,11 +104,13 @@ class Game:
         if(self.running==False):
             return
         # self.grid.print_grid()
+        #update time
+        self.time_passed = datetime.datetime.now() - self.start_time
         if (self.control_tetromino is not None):
             self.control_tetromino.update(args[0], args[1])
             for event in args[1]:
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_c and self.can_hold == True:
+                    if event.key == self.controls['HOLD'] and self.can_hold == True:
                         self.hold_tetromino()
                         self.can_hold = False
                     if event.key == pygame.K_v:
@@ -106,7 +121,6 @@ class Game:
             if(self.prepare_next_tetromino):
                 self.create_tetromino(4, self.pre_tetrominos[0])
                 self.pre_tetrominos.remove(self.pre_tetrominos[0])
-                self.can_hold = True
                 # if (len(self.pre_tetrominos) < 5):
                 #     for tetromino in range(0, 5-len(self.pre_tetrominos)):
                 #         random_tetromino = randint(0, 6)
@@ -289,11 +303,11 @@ class GameGrid:
         if(self.game.control_tetromino is not None):
             self.game.control_tetromino.update_ghost_blocks()
 
-        # push existing blocks upwards
-        # add buffer before garbage is generated
+    def send_rows(self, opponent, rows):
+        opponent.grid.garbage_counter += rows
 
     def update(self, *args, **kwargs):
-        tetromino_active =  self.game.control_tetromino is not None
+        # tetromino_active = self.game.control_tetromino is not None
         if(self.screen_shake_time <= 0):
             self.screen_shake_mag = (0, 0)
         if(self.tile_shake_time <= 0):
@@ -309,6 +323,7 @@ class GameGrid:
             self.clear_row_timer = self.clear_row_buffer
         #clear filled rows
         rows_cleared = 0
+        send_rows = 0
         if(len(self.filled_rows) > 0):
             self.clear_row_timer = self.clear_row_timer - 1
             print(self.clear_row_timer)
@@ -320,19 +335,31 @@ class GameGrid:
                         self.drop_row(above)
                 self.screen_shake(rows_cleared*3+2, (4+3*rows_cleared, 1))
                 self.filled_rows = []
-        if (self.garbage_counter >0 and
-                not tetromino_active and
-                len(self.filled_rows )==0):
-            print(self.garbage_counter)
-            if(rows_cleared == 4):
-                self.garbage_counter -= 4
-            else:
-                self.garbage_counter -= (rows_cleared - 1)
-            for row in range(0,self.garbage_counter,1):
-                self.generate_garbage_row(-1)
-                self.garbage_counter -= 1
-            if(self.garbage_counter<=0):
-                self.garbage_counter=0
+            if (self.game.game_type == 'Battle'):
+                if (rows_cleared > 0):
+                    if (rows_cleared == 4):
+                        send_rows = 4
+                    elif (rows_cleared != 0):
+                        send_rows = (rows_cleared - 1)
+                    if (rows_cleared <= 0):
+                        send_rows = 0
+                if (self.garbage_counter > 0):
+                    if (rows_cleared == 4):
+                        self.garbage_counter -= 4
+                        send_rows -= 4
+                    elif (rows_cleared != 0):
+                        self.garbage_counter -= (rows_cleared - 1)
+                        send_rows -= (rows_cleared - 1)
+                self.send_rows(self.game.opponents[0], send_rows)
+            if (self.garbage_counter >0 and
+                    not self.game.control_tetromino is not None and
+                    len(self.filled_rows )==0):
+                print(self.garbage_counter)
+                for row in range(0,self.garbage_counter,1):
+                    self.generate_garbage_row(-1)
+                    self.garbage_counter -= 1
+                if(self.garbage_counter<=0):
+                    self.garbage_counter=0
         # check top
         for x in range(0, self.width,1):
             for y in range(0, self.buffer,1):
@@ -340,10 +367,12 @@ class GameGrid:
                 if(t.block is not None and t.in_game==False):
                     print('game over')
                     self.game.running = False
-        if(not tetromino_active and
-            len(self.filled_rows)==0
-        ):
+        if(not self.game.control_tetromino is not None and len(self.filled_rows)==0):
             self.game.prepare_next_tetromino = True
+        self.game.line_counter += rows_cleared
+        if(self.game.line_counter >= 40):
+            print('game over')
+            self.game.running = False
         # print('grid update')
 
     def draw(self, surface, *args, **kwargs):
@@ -395,7 +424,7 @@ class Tile:
                     self.grid_pos[1] * self.size,
                     self.size,self.size]
         if(not self.in_game and not self.occupied):
-            pygame.draw.rect(surface, (50,0,0),pos_rect)
+            pygame.draw.rect(surface, (25, 25, 25),pos_rect)
         else:
             if(self.occupied):
                 if(self.blink == True):
@@ -420,17 +449,53 @@ class GameUI(UIContainer):
 
     def draw(self, surface, *args, **kwargs):
         super().draw(surface)
-        pygame.draw.rect(self.surface, (0, 0, 0), (510, 0, 210, 645))
-        pygame.draw.rect(self.surface, (25, 25, 25), (0, 0, 210, 150))
+        pygame.draw.rect(self.surface, (50, 50, 50), (0, 0, 140, 750))
+
+        pygame.draw.rect(self.surface, (0, 0, 0), (0, 0, 140, 430))
+        pygame.draw.rect(self.surface, (25, 25, 25), (0, 440, 140, 100))
         for tetromino in range(0, len(self.game.pre_tetrominos)):
             pv0_img = PV_IMGS[self.game.pre_tetrominos[tetromino]]
             if(tetromino != 0):
                 #pv0_img = pygame.transform.scale(pv0_img, (pv0_img.get_width()*0.5, pv0_img.get_height()*0.5))
-                self.surface.blit(pv0_img, (510+15, tetromino * 120 + 30))
+                self.surface.blit(pv0_img, (10, tetromino * 80 + 20))
             else:
-                self.surface.blit(pv0_img, (510+15, tetromino + 15))
+                self.surface.blit(pv0_img, (10, tetromino + 10))
         if(self.game.held_tetromino is not None):
             hold_img = pygame.image.load('assets/Preveiw Tetrominos/Tetromino' + self.game.held_tetromino + '.png')
-            self.surface.blit(hold_img, (15, 15))
+            self.surface.blit(hold_img, (10, 450))
         if(self.game.can_hold != True):
-            pygame.draw.rect(self.surface, (0, 0, 0), (0, 0, 210, 150),width=15)
+            print(self.game.held_tetromino)
+            pygame.draw.rect(self.surface, (0, 0, 0), (0, 440, 140, 100))
+            if(self.game.held_tetromino != None):
+                hold_img = pygame.image.load('assets/Preveiw Tetrominos/Tetromino' + self.game.held_tetromino + '.png')
+                self.surface.blit(hold_img, (10, 450))
+
+        line_counter = pygame.font.Font('freesansbold.ttf', 50)
+        text = line_counter.render(str(self.game.line_counter), False, (0, 0, 0), (50,50,50))
+        self.surface.blit(text, (60, 625))
+
+        #find change in time
+        time_diff = self.game.time_passed.total_seconds()
+        #format time for output
+        min = round(time_diff) // 60
+        if(min>=100):
+            min=min%100
+        sec = round(time_diff) %60
+        mil = int((time_diff -int(time_diff)) *100)
+        formatted_time = f'{min:02}:{sec:02}:{mil:02}'
+        # formatted_time = str(min)+':'+str(sec)+':'+str(mil)
+
+        text = even_spaced_digits(formatted_time, 15, (0,0,0), (50, 50, 50), 'freesansbold.ttf', 25)
+        surface.blit(text, (10, 675))
+        # timer = pygame.font.Font('freesansbold.ttf', 30)
+        # text = timer.render(formatted_time, False, (0, 0, 0), (50, 50, 50))
+
+def even_spaced_digits(text, space, text_color, bg_color, font, font_size):
+    text_font = pygame.font.Font(font, font_size)
+    surface = pygame.surface.Surface((space*len(text), font_size))
+    surface.fill(bg_color)
+    for character in range(0, len(text)):
+        new_character = text[character]
+        text_surface = text_font.render(new_character, False, text_color, bg_color)
+        surface.blit(text_surface, ((space * character), 0))
+    return surface
